@@ -15,5 +15,5 @@ export interface SendMessageResponse {
 }
 
 export interface ChatService {
-    SendMessage(message: string): Promise<SendMessageResponse>
+    sendMessage(message: string): Promise<SendMessageResponse>
 }
