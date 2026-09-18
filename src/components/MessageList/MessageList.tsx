@@ -4,11 +4,13 @@ import { ChatMessage } from '../ChatMessage/ChatMessage'
 interface MessageListProps {
   messages: ChatMessageType[]
   isLoading: boolean
+  assistantName: string
 }
 
 export function MessageList({
   messages,
   isLoading,
+  assistantName,
 }: MessageListProps) {
   return (
     <section
@@ -22,7 +24,7 @@ export function MessageList({
 
       {isLoading && (
         <p className="message-list__loading">
-          Sofía está respondiendo...
+          {assistantName} está respondiendo...
         </p>
       )}
     </section>

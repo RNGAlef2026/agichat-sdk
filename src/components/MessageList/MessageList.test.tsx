@@ -19,6 +19,7 @@ describe('MessageList', () => {
           },
         ]}
         isLoading={false}
+        assistantName="Sofía"
       />,
     )
 
@@ -26,16 +27,17 @@ describe('MessageList', () => {
     expect(screen.getByText('¡Hola!')).toBeInTheDocument()
   })
 
-  it('shows the loading state', () => {
+  it('shows the loading state with the assistant name', () => {
     render(
       <MessageList
         messages={[]}
         isLoading
+        assistantName="Max"
       />,
     )
 
     expect(
-      screen.getByText('Sofía está respondiendo...'),
+      screen.getByText('Max está respondiendo...'),
     ).toBeInTheDocument()
   })
 
@@ -44,6 +46,7 @@ describe('MessageList', () => {
       <MessageList
         messages={[]}
         isLoading={false}
+        assistantName="Sofía"
       />,
     )
 
