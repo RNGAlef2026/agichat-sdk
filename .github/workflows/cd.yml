@@ -1,0 +1,48 @@
+name: SDK Distribution
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+  distribute:
+    name: Build SDK Artifact
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test
+
+      - name: Check test coverage
+        run: npm run coverage
+
+      - name: Build SDK
+        run: npm run build:lib
+
+      - name: Package SDK
+        run: npm pack
+
+      - name: Upload SDK artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: agichat-sdk
+          path: agichat-sdk-*.tgz
+          if-no-files-found: error
