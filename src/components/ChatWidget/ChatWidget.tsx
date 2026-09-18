@@ -1,15 +1,20 @@
 import { useState } from 'react'
 import { chatService } from '../../services/chatService'
-import type { ChatMessage as ChatMessageType } from '../../types/chat'
+import type {
+  ChatMessage as ChatMessageType,
+  ChatWidgetProps,
+} from '../../types/chat'
 import { ChatHeader } from '../ChatHeader/ChatHeader'
 import { ChatInput } from '../ChatInput/ChatInput'
 import { MessageList } from '../MessageList/MessageList'
-
 import './ChatWidget.css'
 
 const INITIAL_MESSAGES: ChatMessageType[] = []
 
-export function ChatWidget() {
+export function ChatWidget({
+  assistantName = 'Sofía',
+  description = 'Escribe una duda y yo te ayudaré en lo que pueda.',
+}: ChatWidgetProps) {
   const [messages, setMessages] =
     useState<ChatMessageType[]>(INITIAL_MESSAGES)
 
@@ -62,16 +67,17 @@ export function ChatWidget() {
   return (
     <section
       className="chat-widget"
-      aria-label="Asistente virtual Sofía"
+      aria-label={`Asistente virtual ${assistantName}`}
     >
       <ChatHeader
-        assistantName="Sofía"
-        description="Escribe una duda y yo te ayudaré en lo que pueda."
+        assistantName={assistantName}
+        description={description}
       />
 
       <MessageList
         messages={messages}
         isLoading={isLoading}
+        assistantName={assistantName}
       />
 
       <ChatInput

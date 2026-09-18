@@ -1,19 +1,24 @@
 export type MessageRole = 'user' | 'assistant'
 
 export interface ChatMessage {
-    id: string
-    role: MessageRole
-    content: string
+  id: string
+  role: MessageRole
+  content: string
 }
 
 export interface SendMessageRequest {
-    message: string
+  message: string
 }
 
 export interface SendMessageResponse {
-    message: string
+  message: string
 }
 
 export interface ChatService {
-    sendMessage(message: string): Promise<SendMessageResponse>
+  sendMessage(message: string): Promise<SendMessageResponse>
+}
+
+export interface ChatWidgetProps {
+  assistantName?: string
+  description?: string
 }
