@@ -1,11 +1,25 @@
 {
   "name": "agichat-sdk",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "main": "./dist-lib/agichat-sdk.js",
+  "module": "./dist-lib/agichat-sdk.js",
+  "types": "./dist-lib/index.d.ts",
+  "files": [
+    "dist-lib"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist-lib/index.d.ts",
+      "import": "./dist-lib/agichat-sdk.js"
+    },
+    "./style.css": "./dist-lib/agichat-sdk.css"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:lib": "vite build --config vite.lib.config.ts && tsc -p tsconfig.lib.json",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
