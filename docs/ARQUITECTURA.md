@@ -76,32 +76,38 @@ La estructura del proyecto está organizada por responsabilidad. Los componentes
 agichat-sdk/
 ├── .github/
 │   └── workflows/
-│       └── ci.yml
+│       ├── ci.yml
+│       └── cd.yml
 ├── docs/
 │   └── ARQUITECTURA.md
 ├── public/
+│   ├── favicon.svg
+│   └── mockServiceWorker.js
 ├── src/
 │   ├── components/
-│   │   ├── ChatWidget/
 │   │   ├── ChatHeader/
-│   │   ├── MessageList/
+│   │   ├── ChatInput/
 │   │   ├── ChatMessage/
-│   │   └── ChatInput/
-│   ├── hooks/
+│   │   ├── ChatWidget/
+│   │   └── MessageList/
+│   ├── mocks/
+│   │   ├── browser.ts
+│   │   └── handlers.ts
 │   ├── services/
 │   │   └── chatService.ts
-│   ├── mocks/
-│   │   ├── handlers.ts
-│   │   └── browser.ts
-│   ├── types/
-│   │   └── chat.ts
 │   ├── test/
 │   │   └── setup.ts
+│   ├── types/
+│   │   └── chat.ts
 │   ├── App.tsx
+│   ├── index.ts
 │   └── main.tsx
 ├── AGENTS.md
+├── README.md
 ├── package.json
-└── vite.config.ts
+├── tsconfig.lib.json
+├── vite.config.ts
+└── vite.lib.config.ts
 ```
 
 ### Componentes
@@ -165,3 +171,82 @@ La estructura propuesta busca permitir que el proyecto crezca sin concentrar tod
 - Los mocks utilizados durante desarrollo y pruebas deben mantenerse en `mocks/`.
 
 La estructura mostrada anteriormente representa la estructura objetivo del proyecto. Algunas carpetas o archivos pueden crearse progresivamente conforme sean necesarios durante la implementación.
+
+## 6. Distribución del SDK
+
+AGIChat mantiene separada la aplicación utilizada como demostración de la distribución reutilizable del SDK.
+
+La aplicación demo utiliza `main.tsx` y `App.tsx` para mostrar y probar el widget durante el desarrollo.
+
+Por otra parte, `src/index.ts` funciona como punto de entrada público de la librería y exporta únicamente los elementos que pueden ser utilizados por aplicaciones consumidoras.
+
+```text
+Aplicación demo
+      │
+      ├── main.tsx
+      ├── App.tsx
+      └── npm run build
+              ↓
+            dist/
+
+
+SDK
+ │
+ ├── src/index.ts
+ ├── ChatWidget
+ ├── tipos públicos
+ └── npm run build:lib
+          ↓
+       dist-lib/
+       ├── agichat-sdk.js
+       ├── agichat-sdk.css
+       └── declaraciones TypeScript
+```
+
+Esta separación permite utilizar el mismo código tanto para demostrar el funcionamiento del proyecto como para generar una librería consumible por otras aplicaciones.
+
+React se mantiene como una dependencia externa durante la build de la librería para evitar incluir una copia adicional del framework dentro del SDK.
+
+## 7. Integración y distribución continua
+
+El repositorio utiliza GitHub Actions para automatizar la validación y distribución del proyecto.
+
+### Integración continua
+
+Los Pull Requests ejecutan automáticamente verificaciones de:
+
+```text
+Instalación
+    ↓
+Lint
+    ↓
+Tests
+    ↓
+Coverage >= 80%
+    ↓
+Build
+```
+
+Esto permite detectar cambios que rompan el sistema antes de integrarlos a `main`.
+
+### Distribución continua
+
+Los cambios integrados en `main` activan el workflow de distribución:
+
+```text
+main
+  ↓
+GitHub Actions
+  ↓
+Validaciones
+  ↓
+Build del SDK
+  ↓
+npm pack
+  ↓
+Artifact de GitHub
+```
+
+El artifact contiene el paquete generado del SDK y permite distribuir una versión reproducible sin requerir una publicación automática en un registry externo.
+
+Esta estrategia mantiene separadas las responsabilidades de CI y CD: CI determina si un cambio es seguro para integrar y CD genera el artefacto distribuible desde la rama estable.
