@@ -29,6 +29,9 @@ jobs:
       - name: Run lint
         run: npm run lint
 
+      - name: Typecheck backend
+        run: npm run typecheck:server
+
       - name: Run tests
         run: npm test
 

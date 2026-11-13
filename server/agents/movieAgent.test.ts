@@ -171,13 +171,27 @@ describe('movieAgent', () => {
     expect(mocks.clientClose).toHaveBeenCalled()
     expect(mocks.serverClose).toHaveBeenCalled()
   })
-
   it('handles MCP tool failures', async () => {
     mocks.generateContent.mockResolvedValue({
       functionCalls: [
         {
           name: 'search_movies',
           args: { query: 'Interstellar' },
+        },
+      ],
+      candidates: [
+        {
+          content: {
+            role: 'model',
+            parts: [
+              {
+                functionCall: {
+                  name: 'search_movies',
+                  args: { query: 'Interstellar' },
+                },
+              },
+            ],
+          },
         },
       ],
     })
@@ -194,9 +208,132 @@ describe('movieAgent', () => {
 
     await expect(
       generateMovieResponse('Busca Interstellar'),
-    ).rejects.toThrow('La búsqueda de TMDB falló')
+    ).rejects.toThrow('La herramienta search_movies falló')
 
     expect(mocks.clientClose).toHaveBeenCalled()
     expect(mocks.serverClose).toHaveBeenCalled()
   })
+
+
+  it('uses TMDB and Google Books in the same conversation', async () => {
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: 'search_movies' },
+        { name: 'search_books' },
+      ],
+    })
+
+    mocks.generateContent
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'search_movies',
+            args: { query: 'Harry Potter' },
+          },
+          {
+            name: 'search_books',
+            args: { query: 'Harry Potter and the Philosopher Stone' },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_movies',
+                    args: { query: 'Harry Potter' },
+                  },
+                },
+                {
+                  functionCall: {
+                    name: 'search_books',
+                    args: {
+                      query: 'Harry Potter and the Philosopher Stone',
+                    },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: 'La película es una adaptación del libro y vale la pena verla.',
+        functionCalls: [],
+      })
+
+    mocks.callTool.mockImplementation(async ({ name }) => {
+      if (name === 'search_movies') {
+        return {
+          isError: false,
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                source: 'TMDB',
+                movies: [
+                  {
+                    title: 'Harry Potter and the Philosopher Stone',
+                    rating: 7.9,
+                  },
+                ],
+              }),
+            },
+          ],
+        }
+      }
+
+      if (name === 'search_books') {
+        return {
+          isError: false,
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                source: 'Google Books',
+                books: [
+                  {
+                    title: 'Harry Potter and the Philosopher Stone',
+                    authors: ['J. K. Rowling'],
+                  },
+                ],
+              }),
+            },
+          ],
+        }
+      }
+
+      throw new Error('Unexpected tool')
+    })
+
+    const response = await generateMovieResponse(
+      'Compara Harry Potter con su libro original',
+    )
+
+    expect(mocks.callTool).toHaveBeenCalledTimes(2)
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'search_movies',
+      arguments: {
+        query: 'Harry Potter',
+      },
+    })
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'search_books',
+      arguments: {
+        query: 'Harry Potter and the Philosopher Stone',
+      },
+    })
+
+    expect(mocks.generateContent).toHaveBeenCalledTimes(2)
+
+    expect(response).toContain('vale la pena verla')
+
+    expect(mocks.clientClose).toHaveBeenCalled()
+    expect(mocks.serverClose).toHaveBeenCalled()
+  })
+
 })
