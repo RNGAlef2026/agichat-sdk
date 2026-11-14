@@ -251,3 +251,13 @@
     border-radius: 0;
   }
 }
+
+.chat-movie-poster {
+  display: block;
+  width: 100%;
+  max-width: 240px;
+  height: aut0;
+  margin-top: 12px;
+  border-radius: 10px;
+  object-fit: cover;
+}

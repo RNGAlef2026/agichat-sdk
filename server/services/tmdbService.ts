@@ -71,3 +71,51 @@ export async function searchMovies(
         : null,
   }))
 }
+
+
+interface TMDBExternalIds {
+  imdb_id?: string | null
+}
+
+export async function getMovieImdbUrl(
+  movieId: number,
+): Promise<string | null> {
+  if (!Number.isSafeInteger(movieId) || movieId <= 0) {
+    throw new Error('ID de película inválido')
+  }
+
+  const token = process.env.TMDB_ACCESS_TOKEN
+
+  if (!token) {
+    throw new Error('TMDB_ACCESS_TOKEN no está configurado')
+  }
+
+  const url = `${TMDB_BASE_URL}/movie/${movieId}/external_ids`
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      `TMDB respondió con HTTP ${response.status}`,
+    )
+  }
+
+  const data = (await response.json()) as TMDBExternalIds
+
+  const imdbId = data.imdb_id
+
+  if (
+    typeof imdbId !== 'string' ||
+    !/^tt\d{7,10}$/.test(imdbId)
+  ) {
+    return null
+  }
+
+  return `https://www.imdb.com/title/${imdbId}/`
+}

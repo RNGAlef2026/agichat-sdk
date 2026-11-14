@@ -1,6 +1,7 @@
-
 import express from 'express'
 import { generateMovieResponse } from './agents/movieAgent'
+import type { MovieMedia } from './agents/movieMedia'
+import type { NavigationAction } from '../src/types/chat'
 
 export const app = express()
 
@@ -31,9 +32,24 @@ app.post('/api/chat', async (req, res) => {
   }
 
   try {
-    const message = await generateMovieResponse(body.message)
+    let movieMedia: MovieMedia | null = null
+    let navigation: NavigationAction | null = null
 
-    res.json({ message })
+    const message = await generateMovieResponse(
+      body.message,
+      (media) => {
+        movieMedia = media
+      },
+      (action) => {
+        navigation = action
+      },
+    )
+
+    res.json({
+      message,
+      ...(movieMedia ?? {}),
+      ...(navigation ? { navigation } : {}),
+    })
   } catch (error) {
     console.error(
       'Error del agente:',
