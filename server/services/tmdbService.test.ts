@@ -8,7 +8,7 @@ import {
   vi,
 } from 'vitest'
 
-import { searchMovies } from './tmdbService'
+import { searchMovies, getMovieImdbUrl } from './tmdbService'
 
 describe('tmdbService', () => {
   beforeEach(() => {
@@ -120,4 +120,66 @@ describe('tmdbService', () => {
       searchMovies('Interstellar'),
     ).rejects.toThrow('Network failure')
   })
+
+  it('returns a verified IMDb URL from TMDB', async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({ imdb_id: 'tt0816692' }),
+        { status: 200 },
+      ),
+    )
+
+    vi.stubGlobal('fetch', fetchMock)
+
+    const url = await getMovieImdbUrl(157336)
+
+    expect(url).toBe('https://www.imdb.com/title/tt0816692/')
+
+    const [requestUrl] = fetchMock.mock.calls[0]
+
+    expect(String(requestUrl)).toContain(
+      '/movie/157336/external_ids',
+    )
+  })
+
+  it('rejects invalid movie IDs', async () => {
+    await expect(getMovieImdbUrl(-1)).rejects.toThrow(
+      'ID de película inválido',
+    )
+  })
+
+  it('returns null when IMDb ID is unavailable', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ imdb_id: null }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    const url = await getMovieImdbUrl(157336)
+
+    expect(url).toBeNull()
+  })
+
+  it('rejects invalid IMDb identifiers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            imdb_id: 'https://example.com/malicious',
+          }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    const url = await getMovieImdbUrl(157336)
+
+    expect(url).toBeNull()
+  })
+
 })

@@ -3,18 +3,31 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import { createMovieMcpServer } from './movieServer'
-import { searchMovies } from '../services/tmdbService'
+import {
+  searchMovies,
+  getMovieImdbUrl,
+} from '../services/tmdbService'
 import { searchBooks } from '../services/googleBooksService'
 
 vi.mock('../services/tmdbService', () => ({
   searchMovies: vi.fn(),
+  getMovieImdbUrl: vi.fn(),
 }))
 
-vi.mock('../services/googleBooksService', () => ({
-  searchBooks: vi.fn(),
-}))
+vi.mock('../services/googleBooksService', async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import('../services/googleBooksService')
+    >()
+
+  return {
+    ...actual,
+    searchBooks: vi.fn(),
+  }
+})
 
 const searchMoviesMock = vi.mocked(searchMovies)
+const getMovieImdbUrlMock = vi.mocked(getMovieImdbUrl)
 const searchBooksMock = vi.mocked(searchBooks)
 
 const clients: Client[] = []
@@ -125,6 +138,10 @@ describe('movie MCP server', () => {
     expect(serialized).toContain('Google Books')
     expect(serialized).toContain('Harry Potter')
     expect(serialized).toContain('J. K. Rowling')
+
+    expect(serialized).toContain(
+      'https://books.google.com/books?id=book-123',
+    )
   })
 
   it('handles TMDB failures', async () => {
@@ -193,5 +210,43 @@ describe('movie MCP server', () => {
 
     expect(result.isError).toBe(true)
     expect(searchBooksMock).not.toHaveBeenCalled()
+  })
+
+  it('returns a verified IMDb reference through MCP', async () => {
+    getMovieImdbUrlMock.mockResolvedValue(
+      'https://www.imdb.com/title/tt0816692/',
+    )
+
+    const client = await createConnection()
+
+    const result = await client.callTool({
+      name: 'get_imdb_reference',
+      arguments: {
+        movieId: 157336,
+      },
+    })
+
+    expect(result.isError).not.toBe(true)
+
+    expect(getMovieImdbUrlMock).toHaveBeenCalledWith(157336)
+
+    const serialized = JSON.stringify(result.content)
+
+    expect(serialized).toContain('imdb')
+    expect(serialized).toContain('tt0816692')
+  })
+
+  it('rejects invalid IMDb reference requests', async () => {
+    const client = await createConnection()
+
+    const result = await client.callTool({
+      name: 'get_imdb_reference',
+      arguments: {
+        movieId: -1,
+      },
+    })
+
+    expect(result.isError).toBe(true)
+    expect(getMovieImdbUrlMock).not.toHaveBeenCalled()
   })
 })

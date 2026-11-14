@@ -83,3 +83,20 @@ export async function searchBooks(
     }
   })
 }
+
+export function getGoogleBooksUrl(
+  bookId: string,
+): string | null {
+  if (
+    typeof bookId !== 'string' ||
+    !/^[a-zA-Z0-9_-]{1,128}$/.test(bookId)
+  ) {
+    return null
+  }
+
+  const url = new URL('https://books.google.com/books')
+
+  url.searchParams.set('id', bookId)
+
+  return url.toString()
+}

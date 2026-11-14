@@ -336,4 +336,135 @@ describe('movieAgent', () => {
     expect(mocks.serverClose).toHaveBeenCalled()
   })
 
+  it('prepares IMDb navigation using MCP', async () => {
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: 'search_movies' },
+        { name: 'search_books' },
+        { name: 'get_imdb_reference' },
+      ],
+    })
+
+    mocks.generateContent
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'search_movies',
+            args: { query: 'Interstellar' },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_movies',
+                    args: { query: 'Interstellar' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'get_imdb_reference',
+            args: { movieId: 157336 },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'get_imdb_reference',
+                    args: { movieId: 157336 },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: 'He encontrado Interstellar en IMDb.',
+        functionCalls: [],
+      })
+
+    mocks.callTool
+      .mockResolvedValueOnce({
+        isError: false,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              source: 'TMDB',
+              movies: [
+                {
+                  id: 157336,
+                  title: 'Interstellar',
+                  posterUrl:
+                    'https://image.tmdb.org/t/p/w500/poster.jpg',
+                },
+              ],
+            }),
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        isError: false,
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              source: 'TMDB',
+              provider: 'imdb',
+              url: 'https://www.imdb.com/title/tt0816692/',
+            }),
+          },
+        ],
+      })
+
+    const onMovieMedia = vi.fn()
+    const onNavigation = vi.fn()
+
+    const response = await generateMovieResponse(
+      'Abre Interstellar en IMDb',
+      onMovieMedia,
+      onNavigation,
+    )
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'get_imdb_reference',
+      arguments: {
+        movieId: 157336,
+      },
+    })
+
+    expect(onNavigation).toHaveBeenCalledWith({
+      type: 'open_reference',
+      provider: 'imdb',
+      url: 'https://www.imdb.com/title/tt0816692/',
+    })
+
+    expect(onMovieMedia).toHaveBeenCalledWith({
+      movieTitle: 'Interstellar',
+      posterUrl:
+        'https://image.tmdb.org/t/p/w500/poster.jpg',
+    })
+
+    expect(mocks.generateContent).toHaveBeenCalledTimes(3)
+
+    expect(response).toContain('Interstellar')
+
+    expect(mocks.clientClose).toHaveBeenCalled()
+    expect(mocks.serverClose).toHaveBeenCalled()
+  })
+
 })

@@ -1,8 +1,14 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
-import { searchMovies } from '../services/tmdbService'
-import { searchBooks } from '../services/googleBooksService'
+import {
+  getMovieImdbUrl,
+  searchMovies,
+} from '../services/tmdbService'
+import {
+  searchBooks,
+  getGoogleBooksUrl
+} from '../services/googleBooksService'
 
 export function createMovieMcpServer() {
   const server = new McpServer({
@@ -63,13 +69,18 @@ export function createMovieMcpServer() {
       try {
         const books = await searchBooks(query)
 
+        const booksWithReferences = books.map((book) => ({
+          ...book,
+          referenceUrl: getGoogleBooksUrl(book.id),
+        }))
+
         return {
           content: [
             {
               type: 'text' as const,
               text: JSON.stringify({
                 source: 'Google Books',
-                books,
+                books: booksWithReferences,
               }),
             },
           ],
@@ -81,6 +92,46 @@ export function createMovieMcpServer() {
             {
               type: 'text' as const,
               text: 'No fue posible consultar Google Books.',
+            },
+          ],
+        }
+      }
+    },
+  )
+
+  server.registerTool(
+    'get_imdb_reference',
+    {
+      description:
+        'Obtiene la URL oficial de IMDb de una película ' +
+        'utilizando su identificador de TMDB.',
+      inputSchema: {
+        movieId: z.number().int().positive(),
+      },
+    },
+    async ({ movieId }) => {
+      try {
+        const url = await getMovieImdbUrl(movieId)
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                source: 'TMDB',
+                provider: 'imdb',
+                url,
+              }),
+            },
+          ],
+        }
+      } catch {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No fue posible obtener la referencia de IMDb.',
             },
           ],
         }

@@ -85,6 +85,8 @@ describe('AGIChat Backend API', () => {
 
     expect(generateResponseMock).toHaveBeenCalledWith(
       'Busca Interstellar',
+      expect.any(Function),
+      expect.any(Function),
     )
   })
 

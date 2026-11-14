@@ -3,11 +3,14 @@ import {
   beforeEach,
   describe,
   expect,
-  it, 
+  it,
   vi,
 } from 'vitest'
 
-import { searchBooks } from './googleBooksService'
+import {
+  searchBooks,
+  getGoogleBooksUrl,
+} from './googleBooksService'
 
 describe('googleBooksService', () => {
 
@@ -179,5 +182,27 @@ describe('googleBooksService', () => {
       'GOOGLE_BOOKS_API_KEY no esta configurada',
     )
   })
+
+  it('creates a safe Google Books URL', () => {
+    const url = getGoogleBooksUrl('book-123')
+
+    expect(url).toBe(
+      'https://books.google.com/books?id=book-123',
+    )
+  })
+
+  it('rejects invalid book identifiers', () => {
+    expect(
+      getGoogleBooksUrl('https://example.com'),
+    ).toBeNull()
+
+    expect(
+      getGoogleBooksUrl(''),
+    ).toBeNull()
+
+    expect(
+      getGoogleBooksUrl('../malicious'),
+    ).toBeNull()
+})
 
 })
