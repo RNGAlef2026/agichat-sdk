@@ -355,4 +355,55 @@
       )
     })
 
+    it('sends a welcome suggestion and displays the conversation', async () => {
+      const user = userEvent.setup()
+
+      sendMessageMock.mockResolvedValue({
+        message: 'Te recomiendo Interstellar.',
+      })
+
+      render(<ChatWidget />)
+
+      // La bienvenida aparece inicialmente.
+      expect(
+        screen.getByRole('heading', {
+          name: '¿Qué historia exploramos hoy?',
+        }),
+      ).toBeInTheDocument()
+
+      // Seleccionar una recomendación.
+      await user.click(
+        screen.getByRole('button', {
+          name: /recomendaciones/i,
+        }),
+      )
+
+      const expectedPrompt =
+        'Recomiéndame 5 películas de ciencia ficción bien calificadas usando TMDB.'
+
+      // El mensaje llega al servicio.
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        expectedPrompt,
+      )
+
+      // La bienvenida desaparece.
+      expect(
+        screen.queryByRole('heading', {
+          name: '¿Qué historia exploramos hoy?',
+        }),
+      ).not.toBeInTheDocument()
+
+      // Se muestra el mensaje enviado.
+      expect(
+        screen.getByText(expectedPrompt),
+      ).toBeInTheDocument()
+
+      // Se muestra la respuesta del asistente.
+      expect(
+        await screen.findByText(
+          'Te recomiendo Interstellar.',
+        ),
+      ).toBeInTheDocument()
+    })
+
   })
