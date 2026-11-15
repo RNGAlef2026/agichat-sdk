@@ -6,13 +6,18 @@ import { createMovieMcpServer } from './movieServer'
 import {
   searchMovies,
   getMovieImdbUrl,
+  discoverMovies,
 } from '../services/tmdbService'
 import { searchBooks } from '../services/googleBooksService'
 
 vi.mock('../services/tmdbService', () => ({
   searchMovies: vi.fn(),
   getMovieImdbUrl: vi.fn(),
+  discoverMovies: vi.fn(),
 }))
+
+const discoverMoviesMock = vi.mocked(discoverMovies)
+discoverMoviesMock.mockReset()
 
 vi.mock('../services/googleBooksService', async (importOriginal) => {
   const actual =
@@ -249,4 +254,54 @@ describe('movie MCP server', () => {
     expect(result.isError).toBe(true)
     expect(getMovieImdbUrlMock).not.toHaveBeenCalled()
   })
+
+  it('discovers movies by genre through MCP', async () => {
+    discoverMoviesMock.mockResolvedValue([
+      {
+        id: 157336,
+        title: 'Interstellar',
+        overview: 'Película de ciencia ficción.',
+        releaseDate: '2014-11-05',
+        rating: 8.5,
+        posterUrl:
+          'https://image.tmdb.org/t/p/w500/interstellar.jpg',
+      },
+    ])
+
+    const client = await createConnection()
+
+    const result = await client.callTool({
+      name: 'discover_movies',
+      arguments: {
+        genre: 'science_fiction',
+      },
+    })
+
+    expect(result.isError).not.toBe(true)
+
+    expect(discoverMoviesMock).toHaveBeenCalledWith(
+      'science_fiction',
+    )
+
+    const serialized = JSON.stringify(result.content)
+
+    expect(serialized).toContain('TMDB')
+    expect(serialized).toContain('Interstellar')
+    expect(serialized).toContain('science_fiction')
+  })
+
+  it('rejects unsupported genres through MCP', async () => {
+    const client = await createConnection()
+
+    const result = await client.callTool({
+      name: 'discover_movies',
+      arguments: {
+        genre: 'invalid_genre',
+      },
+    })
+
+    expect(result.isError).toBe(true)
+    expect(discoverMoviesMock).not.toHaveBeenCalled()
+  })
+
 })

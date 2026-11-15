@@ -2,9 +2,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 import {
+  discoverMovies,
   getMovieImdbUrl,
   searchMovies,
 } from '../services/tmdbService'
+import type { MovieGenre } from '../services/tmdbService'
 import {
   searchBooks,
   getGoogleBooksUrl
@@ -132,6 +134,59 @@ export function createMovieMcpServer() {
             {
               type: 'text' as const,
               text: 'No fue posible obtener la referencia de IMDb.',
+            },
+          ],
+        }
+      }
+    },
+  )
+
+  server.registerTool(
+    'discover_movies',
+    {
+      description:
+        'Descubre y recomienda películas reales de TMDB ' +
+        'según su género, ordenadas por calificación.',
+      inputSchema: {
+        genre: z.enum([
+          'action',
+          'adventure',
+          'animation',
+          'comedy',
+          'drama',
+          'fantasy',
+          'horror',
+          'romance',
+          'science_fiction',
+          'thriller',
+        ]),
+      },
+    },
+    async ({ genre }) => {
+      try {
+        const movies = await discoverMovies(
+          genre as MovieGenre,
+        )
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: JSON.stringify({
+                source: 'TMDB',
+                genre,
+                movies,
+              }),
+            },
+          ],
+        }
+      } catch {
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text' as const,
+              text: 'No fue posible descubrir películas en TMDB.',
             },
           ],
         }

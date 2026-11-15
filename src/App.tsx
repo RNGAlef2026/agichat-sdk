@@ -1,3 +1,4 @@
+
 import { ChatWidget } from './components/ChatWidget/ChatWidget'
 
 function App() {
@@ -8,18 +9,26 @@ function App() {
         description="Escribe una duda y yo te ayudaré en lo que pueda"
       />
 
-      <footer aria-label="Atribución de TMDB">
-        <small>
-          This product uses the{' '}
-          <a
-            href="https://www.themoviedb.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            TMDB API
-          </a>
-          {' '}but is not endorsed or certified by TMDB.
-        </small>
+      <footer aria-label="Créditos y atribuciones">
+        <a
+          href="https://www.themoviedb.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Visitar The Movie Database"
+        >
+          <img
+            src="/tmdb-logo.svg"
+            alt="TMDB - The Movie Database"
+            width="120"
+          />
+        </a>
+
+        <p>
+          <small>
+            This product uses the TMDB API but is not
+            endorsed or certified by TMDB.
+          </small>
+        </p>
       </footer>
     </main>
   )
