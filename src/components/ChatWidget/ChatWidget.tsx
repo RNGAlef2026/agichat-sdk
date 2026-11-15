@@ -197,6 +197,7 @@ export function ChatWidget({
         messages={messages}
         isLoading={isLoading}
         assistantName={assistantName}
+        onSuggestionSelect={handleSendMessage}
       />
 
       {fallbackNavigation && (
