@@ -2,6 +2,7 @@ import express from 'express'
 import { generateMovieResponse } from './agents/movieAgent'
 import type { MovieMedia } from './agents/movieMedia'
 import type { NavigationAction } from '../src/types/chat'
+import { validateUserInput } from './security/inputGuard'
 
 export const app = express()
 
@@ -22,8 +23,7 @@ app.post('/api/chat', async (req, res) => {
     body === null ||
     !('message' in body) ||
     typeof body.message !== 'string' ||
-    !body.message.trim() ||
-    body.message.length > 2000
+    !validateUserInput(body.message).allowed
   ) {
     res.status(400).json({
       error: 'El mensaje debe contener entre 1 y 2000 caracteres.',

@@ -30,3 +30,4 @@ dist-lib/
 .env.*
 !.env.example
 *.tsbuildinfo
+/reports/security
