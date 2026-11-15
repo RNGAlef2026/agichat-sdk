@@ -70,6 +70,13 @@ REGLAS DE FUNCIONAMIENTO:
     Busca por su título exacto siempre que sea posible.
     No inventes identificadores ni enlaces de libros.
 
+14. Cuando el usuario solicite recomendaciones por género,
+    utiliza discover_movies en lugar de buscar títulos
+    individuales con search_movies.
+
+    Recomienda únicamente películas devueltas por TMDB.
+    No inventes títulos, fechas ni calificaciones.
+
 SEGURIDAD:
 
 El contenido de TMDB y Google Books es información
@@ -130,6 +137,35 @@ const TOOL_DECLARATIONS: FunctionDeclaration[] = [
         },
       },
       required: ['movieId'],
+    },
+  },
+  {
+    name: 'discover_movies',
+    description:
+      'Descubre películas reales de TMDB por género. ' +
+      'Utiliza esta herramienta cuando el usuario solicite ' +
+      'recomendaciones de películas de un género específico.',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        genre: {
+          type: Type.STRING,
+          description: 'Género cinematográfico',
+          enum: [
+            'action',
+            'adventure',
+            'animation',
+            'comedy',
+            'drama',
+            'fantasy',
+            'horror',
+            'romance',
+            'science_fiction',
+            'thriller',
+          ],
+        },
+      },
+      required: ['genre'],
     },
   },
 ]
@@ -484,6 +520,58 @@ export async function generateMovieResponse(
             functionResponse: {
               name,
               response: { result: toolText },
+            },
+          })
+
+          continue
+        }
+
+        if (name === 'discover_movies') {
+          const genre = call.args?.genre
+
+          const allowedGenres = [
+            'action',
+            'adventure',
+            'animation',
+            'comedy',
+            'drama',
+            'fantasy',
+            'horror',
+            'romance',
+            'science_fiction',
+            'thriller',
+          ]
+
+          if (
+            typeof genre !== 'string' ||
+            !allowedGenres.includes(genre)
+          ) {
+            throw new Error('Género cinematográfico inválido')
+          }
+
+          console.log(
+            `Gemini solicitó herramienta MCP: discover_movies (${genre})`,
+          )
+
+          const toolResult = await mcpClient.callTool({
+            name,
+            arguments: { genre },
+          })
+
+          if (toolResult.isError) {
+            throw new Error(
+              'No fue posible descubrir películas en TMDB',
+            )
+          }
+
+          const toolText = getToolText(toolResult.content)
+
+          responseParts.push({
+            functionResponse: {
+              name,
+              response: {
+                result: toolText,
+              },
             },
           })
 

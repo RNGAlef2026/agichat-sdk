@@ -119,3 +119,73 @@ export async function getMovieImdbUrl(
 
   return `https://www.imdb.com/title/${imdbId}/`
 }
+
+
+const MOVIE_GENRES = {
+  action: 28,
+  adventure: 12,
+  animation: 16,
+  comedy: 35,
+  drama: 18,
+  fantasy: 14,
+  horror: 27,
+  romance: 10749,
+  science_fiction: 878,
+  thriller: 53,
+} as const
+
+export type MovieGenre = keyof typeof MOVIE_GENRES
+
+export async function discoverMovies(
+  genre: MovieGenre,
+): Promise<Movie[]> {
+  const token = process.env.TMDB_ACCESS_TOKEN
+
+  if (!token) {
+    throw new Error('TMDB_ACCESS_TOKEN no está configurado')
+  }
+
+  const genreId = MOVIE_GENRES[genre]
+
+  if (!genreId) {
+    throw new Error('Género de película inválido')
+  }
+
+  const url = new URL(`${TMDB_BASE_URL}/discover/movie`)
+
+  url.searchParams.set('with_genres', String(genreId))
+  url.searchParams.set('language', 'es-ES')
+  url.searchParams.set('sort_by', 'vote_average.desc')
+  url.searchParams.set('vote_count.gte', '200')
+  url.searchParams.set('include_adult', 'false')
+  url.searchParams.set('page', '1')
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json',
+    },
+    signal: AbortSignal.timeout(10000),
+  })
+
+  if (!response.ok) {
+    throw new Error(
+      `TMDB respondió con HTTP ${response.status}`,
+    )
+  }
+
+  const data =
+    (await response.json()) as TMDBSearchResponse
+
+  return data.results.slice(0, 5).map((movie) => ({
+    id: movie.id,
+    title: movie.title,
+    overview: movie.overview,
+    releaseDate: movie.release_date ?? '',
+    rating: movie.vote_average,
+    posterUrl:
+      movie.poster_path?.startsWith('/')
+        ? `${TMDB_IMAGE_URL}${movie.poster_path}`
+        : null,
+  }))
+}
