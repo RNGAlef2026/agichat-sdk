@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from '@google/genai'
 import type {
   Content,
@@ -12,6 +11,7 @@ import { extractMovieMedia } from './movieMedia'
 import type { MovieMedia } from './movieMedia'
 import type { NavigationAction } from '../../src/types/chat'
 import { getGoogleBooksUrl } from '../services/googleBooksService'
+import { validateAgentOutput } from '../security/outputGuard'
 
 const MODEL = 'gemini-3.5-flash-lite'
 const MAX_TOOL_ROUNDS = 4
@@ -161,15 +161,35 @@ function isImdbOpeningRequested(message: string): boolean {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .trim()
 
-  const openingRequested =
-    /\b(abre|abrir|abreme|open|visita|visitar)\b/.test(
+  if (!/\bimdb\b/.test(normalizedMessage)) {
+    return false
+  }
+
+  // Rechazar solicitudes que niegan la apertura.
+  const negativeRequest =
+    /\b(?:no|nunca|jamas)\b.{0,60}\b(?:abre|abrir|abreme|visita|visitar)\b/.test(
       normalizedMessage,
     )
 
-  const imdbMentioned = /\bimdb\b/.test(normalizedMessage)
+  if (negativeRequest) {
+    return false
+  }
 
-  return openingRequested && imdbMentioned
+  // Reconocer solicitudes afirmativas explícitas.
+  const explicitRequest =
+    /^(?:por favor[\s,]*)?(?:abre|abreme|visita)\b/.test(
+      normalizedMessage,
+    ) ||
+    /\b(?:quiero|necesito|puedes|podrias)\s+(?:que\s+)?(?:abrir|abras)\b/.test(
+      normalizedMessage,
+    ) ||
+    /\by\s+(?:abre|abreme|visita)\b/.test(
+      normalizedMessage,
+    )
+
+  return explicitRequest
 }
 
 function isValidImdbUrl(value: string): boolean {
@@ -236,6 +256,37 @@ function getBookNavigation(
   }
 }
 
+function extractTmdbMovieIds(toolText: string): number[] {
+  try {
+    const data: unknown = JSON.parse(toolText)
+
+    if (
+      typeof data !== 'object' ||
+      data === null ||
+      !('source' in data) ||
+      data.source !== 'TMDB' ||
+      !('movies' in data) ||
+      !Array.isArray(data.movies)
+    ) {
+      return []
+    }
+
+    return data.movies
+      .filter(
+        (movie: unknown): movie is { id: number } =>
+          typeof movie === 'object' &&
+          movie !== null &&
+          'id' in movie &&
+          typeof movie.id === 'number' &&
+          Number.isSafeInteger(movie.id) &&
+          movie.id > 0,
+      )
+      .map((movie) => movie.id)
+  } catch {
+    return []
+  }
+}
+
 export async function generateMovieResponse(
   message: string,
   onMovieMedia?: (media: MovieMedia) => void,
@@ -288,6 +339,8 @@ export async function generateMovieResponse(
       },
     ]
 
+    const verifiedMovieIds = new Set<number>()
+
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const response = await ai.models.generateContent({
         model: MODEL,
@@ -305,10 +358,25 @@ export async function generateMovieResponse(
       const functionCalls = response.functionCalls ?? []
 
       if (functionCalls.length === 0) {
-        return (
+        const finalResponse =
           response.text ??
-          'No fue posible generar una respuesta.'
-        )
+          'No fue posible generar una respuesta'
+
+        const validation = validateAgentOutput(finalResponse)
+
+        if (!validation.allowed) {
+          console.warn(
+            'Seguridad LLM07: respuesta bloqueada por outputGuard',
+          )
+
+          return (
+            'No puedo compartir información interna ' +
+            'o confidencial del sistema. ' +
+            'Puedo ayudarte con películas y libros.'
+          )
+        }
+
+        return finalResponse
       }
 
       const modelContent = response.candidates?.[0]?.content
@@ -333,6 +401,24 @@ export async function generateMovieResponse(
         }
 
         if (name === 'get_imdb_reference') {
+
+          if (!isImdbOpeningRequested(message)) {
+            console.warn(
+              'Seguridad LLM01: consulta IMDb  no autorizada',
+            )
+
+            responseParts.push({
+              functionResponse: {
+                name,
+                response: {
+                  error: 'Operacion no autorizada por el usuario',
+                },
+              },
+            })
+
+            continue
+          }
+
           const movieId = call.args?.movieId
 
           if (
@@ -341,6 +427,24 @@ export async function generateMovieResponse(
             movieId <= 0
           ) {
             throw new Error('Identificador TMDB inválido')
+          }
+
+          if (!verifiedMovieIds.has(movieId)) {
+            console.warn(
+              'Seguridad LLM01: identificador TMDB no verificado',
+            )
+
+            responseParts.push({
+              functionResponse: {
+                name,
+                response: {
+                  error: 'Pelicula no verificada mediante TMDB'
+                },
+              },
+            })
+
+            continue
+
           }
 
           console.log(
@@ -443,6 +547,12 @@ export async function generateMovieResponse(
         }
 
         if (name === 'search_movies') {
+          const movieIds = extractTmdbMovieIds(toolText)
+
+          for (const movieId of movieIds) {
+            verifiedMovieIds.add(movieId)
+          }
+
           const movieMedia = extractMovieMedia(toolText, query)
 
           if (movieMedia) {
