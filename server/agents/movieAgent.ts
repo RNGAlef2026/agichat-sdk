@@ -238,6 +238,7 @@ function isValidImdbUrl(value: string): boolean {
 function getBookNavigation(
   toolText: string,
   query: string,
+  userMessage: string,
 ): NavigationAction | null {
   try {
     const data: unknown = JSON.parse(toolText)
@@ -260,14 +261,54 @@ function getBookNavigation(
         .toLowerCase()
         .trim()
 
-    const book = data.books.find(
-      (item: unknown) =>
-        typeof item === 'object' &&
-        item !== null &&
-        'title' in item &&
-        typeof item.title === 'string' &&
-        normalize(item.title) === normalize(query),
-    )
+    const normalizedQuery = normalize(query)
+    const normalizedMessage = normalize(userMessage)
+
+    // Detectar si el usuario solicitó una edición específica.
+    const requestedEdition = normalizedMessage.match(
+      /\(edicion(?:\s+[^()]*)?\)/,
+    )?.[0]
+
+    const book = data.books.find((item: unknown) => {
+      if (
+        typeof item !== 'object' ||
+        item === null ||
+        !('title' in item) ||
+        typeof item.title !== 'string'
+      ) {
+        return false
+      }
+
+      const normalizedTitle = normalize(item.title)
+
+      // Si el usuario especificó una edición,
+      // únicamente aceptar esa edición.
+      if (requestedEdition) {
+        const expectedTitle = normalizedQuery.endsWith(
+          requestedEdition,
+        )
+          ? normalizedQuery
+          : `${normalizedQuery} ${requestedEdition}`
+
+        return normalizedTitle === expectedTitle
+      }
+
+      // Coincidencia exacta.
+      if (normalizedTitle === normalizedQuery) {
+        return true
+      }
+
+      // Permitir un sufijo de edición cuando
+      // el usuario no especificó una edición.
+      const editionSuffix = normalizedTitle.slice(
+        normalizedQuery.length,
+      )
+
+      return (
+        normalizedTitle.startsWith(normalizedQuery) &&
+        /^\s+\(edicion(?:\s+[^()]*)?\)$/.test(editionSuffix)
+      )
+    })
 
     if (
       !book ||
@@ -619,14 +660,33 @@ export async function generateMovieResponse(
             .replace(/[\u0300-\u036f]/g, '')
             .toLowerCase()
 
-          const requestedOpening =
-            /\b(abre|abrir|abreme|open|visita|visitar)\b/.test(
+          const negativeRequest =
+            /\b(?:no|nunca|jamas)\b.{0,60}\b(?:abre|abrir|abreme|abras|open|visita|visitar)\b/.test(
               normalizedMessage,
-            ) &&
+            )
+
+          const explicitRequest =
+            /^(?:por favor[\s,]*)?(?:abre|abreme|visita)\b/.test(
+              normalizedMessage,
+            ) ||
+            /\b(?:quiero|necesito|puedes|podrias)\s+(?:que\s+)?(?:abrir|abras)\b/.test(
+              normalizedMessage,
+            ) ||
+            /\by\s+(?:abre|abreme|visita)\b/.test(
+              normalizedMessage,
+            )
+
+          const requestedOpening =
+            !negativeRequest &&
+            explicitRequest &&
             /\bgoogle books\b/.test(normalizedMessage)
 
           if (requestedOpening) {
-            const navigation = getBookNavigation(toolText, query)
+            const navigation = getBookNavigation(
+              toolText,
+              query,
+              message,
+            )
 
             if (navigation) {
               onNavigation?.(navigation)

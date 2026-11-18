@@ -335,6 +335,324 @@ describe('movieAgent', () => {
     expect(mocks.serverClose).toHaveBeenCalled()
   })
 
+  it('opens Google Books when the returned title has an edition suffix', async () => {
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: 'search_movies' },
+        { name: 'search_books'},
+      ],
+    })
+
+    mocks.generateContent
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'search_books',
+            args: { query: 'El Hobbit' },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_books',
+                    args: { query: 'El Hobbit' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: 'Encontré El Hobbit en Google Books.',
+        functionCalls: [],
+      })
+
+    mocks.callTool.mockResolvedValue({
+      isError: false,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            source: 'Google Books',
+            books: [
+              {
+                id: 'hobbit123',
+                title: 'El Hobbit (edición revisada)',
+                authors: ['J. R. R. Tolkien'],
+              },
+            ],
+          }),
+        },
+      ],
+    })
+
+    const onNavigation = vi.fn()
+
+    const response = await generateMovieResponse(
+      'Abre El Hobbit en Google Books',
+      undefined,
+      onNavigation,
+    )
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'search_books',
+      arguments: {
+        query: 'El Hobbit',
+      },
+    })
+
+    expect(onNavigation).toHaveBeenCalledExactlyOnceWith({
+      type: 'open_reference',
+      provider: 'google_books',
+      url: 'https://books.google.com/books?id=hobbit123',
+    })
+
+    expect(response).toContain('El Hobbit')
+
+    expect(mocks.clientClose).toHaveBeenCalled()
+    expect(mocks.serverClose).toHaveBeenCalled()
+  })
+
+  it('does not open Google Books for an unrelated book', async () => {
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: 'search_movies' },
+        { name: 'search_books' },
+      ],
+    })
+
+    mocks.generateContent
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'search_books',
+            args: { query: 'El Hobbit' },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_books',
+                    args: { query: 'El Hobbit' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: 'No encontré el libro solicitado.',
+        functionCalls: [],
+      })
+
+    mocks.callTool.mockResolvedValue({
+      isError: false,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            source: 'Google Books',
+            books: [
+              {
+                id: 'wrong-book-123',
+                title: 'El Señor de los Anillos',
+                authors: ['J. R. R. Tolkien'],
+              },
+            ],
+          }),
+        },
+      ],
+    })
+
+    const onNavigation = vi.fn()
+
+    await generateMovieResponse(
+      'Abre El Hobbit en Google Books',
+      undefined,
+      onNavigation,
+    )
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'search_books',
+      arguments: {
+        query: 'El Hobbit',
+      },
+    })
+
+    expect(onNavigation).not.toHaveBeenCalled()
+  })
+
+  it('does not open Google Books when the user denies navigation', async () => {
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: 'search_movies' },
+        { name: 'search_books' },
+      ],
+    })
+
+    mocks.generateContent
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'search_books',
+            args: { query: 'El Hobbit' },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_books',
+                    args: { query: 'El Hobbit' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: 'Encontré El Hobbit en Google Books.',
+        functionCalls: [],
+      })
+
+    mocks.callTool.mockResolvedValue({
+      isError: false,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            source: 'Google Books',
+            books: [
+              {
+                id: 'hobbit123',
+                title: 'El Hobbit (edición revisada)',
+                authors: ['J. R. R. Tolkien'],
+              },
+            ],
+          }),
+        },
+      ],
+    })
+
+    const onNavigation = vi.fn()
+
+    await generateMovieResponse(
+      'No quiero abrir El Hobbit en Google Books. Solo dame información.',
+      undefined,
+      onNavigation,
+    )
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'search_books',
+      arguments: {
+        query: 'El Hobbit',
+      },
+    })
+
+    // La coincidencia es válida, pero el usuario negó la apertura.
+    expect(onNavigation).not.toHaveBeenCalled()
+
+    expect(mocks.clientClose).toHaveBeenCalled()
+    expect(mocks.serverClose).toHaveBeenCalled()
+  })
+
+  it('opens the specifically requested Google Books edition', async () => {
+    mocks.listTools.mockResolvedValue({
+      tools: [
+        { name: 'search_movies' },
+        { name: 'search_books' },
+      ],
+    })
+
+    mocks.generateContent
+      .mockResolvedValueOnce({
+        functionCalls: [
+          {
+            name: 'search_books',
+            args: { query: 'El Hobbit' },
+          },
+        ],
+        candidates: [
+          {
+            content: {
+              role: 'model',
+              parts: [
+                {
+                  functionCall: {
+                    name: 'search_books',
+                    args: { query: 'El Hobbit' },
+                  },
+                },
+              ],
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        text: 'Encontré la edición revisada de El Hobbit.',
+        functionCalls: [],
+      })
+
+    mocks.callTool.mockResolvedValue({
+      isError: false,
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            source: 'Google Books',
+            books: [
+              {
+                id: 'illustrated123',
+                title: 'El Hobbit (edición ilustrada)',
+                authors: ['J. R. R. Tolkien'],
+              },
+              {
+                id: 'revised123',
+                title: 'El Hobbit (edición revisada)',
+                authors: ['J. R. R. Tolkien'],
+              },
+            ],
+          }),
+        },
+      ],
+    })
+
+    const onNavigation = vi.fn()
+
+    await generateMovieResponse(
+      'Abre El Hobbit (edición revisada) en Google Books',
+      undefined,
+      onNavigation,
+    )
+
+    expect(mocks.callTool).toHaveBeenCalledWith({
+      name: 'search_books',
+      arguments: {
+        query: 'El Hobbit',
+      },
+    })
+
+    expect(onNavigation).toHaveBeenCalledExactlyOnceWith({
+      type: 'open_reference',
+      provider: 'google_books',
+      url: 'https://books.google.com/books?id=revised123',
+    })
+  })
+
   it('prepares IMDb navigation using MCP', async () => {
     mocks.listTools.mockResolvedValue({
       tools: [
