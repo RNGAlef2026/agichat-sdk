@@ -269,6 +269,48 @@
       )
     })
 
+    it('does not open Google Books when the user denies navigation', async () => {
+      const user = userEvent.setup()
+
+      const openMock = vi
+        .spyOn(window, 'open')
+        .mockReturnValue(null)
+
+      sendMessageMock.mockResolvedValue({
+        message: 'Aquí tienes información sobre El Hobbit.',
+        navigation: {
+          type: 'open_reference',
+          provider: 'google_books',
+          url: 'https://books.google.com/books?id=book123',
+        },
+      })
+
+      render(<ChatWidget />)
+
+      await user.type(
+        screen.getByPlaceholderText('Escribe un mensaje...'),
+        'No quiero abrir El Hobbit en Google Books. Solo dame información.',
+      )
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Enviar mensaje',
+        }),
+      )
+
+      expect(
+        await screen.findByText(
+          'Aquí tienes información sobre El Hobbit.',
+        ),
+      ).toBeInTheDocument()
+
+      expect(sendMessageMock).toHaveBeenCalledWith(
+        'No quiero abrir El Hobbit en Google Books. Solo dame información.',
+      )
+
+      expect(openMock).not.toHaveBeenCalled()
+    })
+
     it('rejects unauthorized navigation URLs', async () => {
       const user = userEvent.setup()
       const replaceMock = vi.fn()

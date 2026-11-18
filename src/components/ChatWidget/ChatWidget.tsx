@@ -19,13 +19,31 @@ function getRequestedProvider(
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .trim()
 
-  const wantsToOpen =
-    /\b(abre|abrir|abreme|open|visita|visitar)\b/.test(
+  // Rechazar solicitudes que niegan la apertura.
+  const negativeRequest =
+    /\b(?:no|nunca|jamas)\b.{0,60}\b(?:abre|abrir|abreme|abras|open|visita|visitar)\b/.test(
       normalized,
     )
 
-  if (!wantsToOpen) {
+  if (negativeRequest) {
+    return null
+  }
+
+  // Reconocer solicitudes afirmativas explícitas.
+  const explicitRequest =
+    /^(?:por favor[\s,]*)?(?:abre|abreme|visita)\b/.test(
+      normalized,
+    ) ||
+    /\b(?:quiero|necesito|puedes|podrias)\s+(?:que\s+)?(?:abrir|abras)\b/.test(
+      normalized,
+    ) ||
+    /\by\s+(?:abre|abreme|visita)\b/.test(
+      normalized,
+    )
+
+  if (!explicitRequest) {
     return null
   }
 
