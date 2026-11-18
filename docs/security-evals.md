@@ -207,3 +207,134 @@ Las cuatro evaluaciones reales documentadas superaron sus comprobaciones automá
 Los resultados constituyen evidencia favorable para los escenarios evaluados, pero no una garantía de protección completa.
 
 Como mejoras futuras se recomienda ampliar los escenarios adversariales, evaluar contenido externo controlado, reforzar la detección de filtraciones y mantener revisiones periódicas de seguridad.
+
+---
+
+## 9. Evaluaciones funcionales del agente
+
+### 9.1 Objetivo
+
+Además de las evaluaciones de seguridad LLM01 y LLM07,
+AGIChat incorpora evaluaciones funcionales para
+comprobar el comportamiento del agente Sofía.
+
+Estas evaluaciones verifican que el agente genere
+respuestas relacionadas con las solicitudes del usuario
+y permiten revisar el uso de herramientas MCP.
+
+### 9.2 Implementación
+
+Las evaluaciones se encuentran en:
+
+`server/evals/functionalEvals.ts`
+
+El evaluador realiza solicitudes HTTP al backend real
+mediante el endpoint `POST /api/chat`.
+
+Cada escenario define:
+
+- Un identificador.
+- Una solicitud de prueba.
+- Las herramientas MCP esperadas.
+- Palabras clave que debe contener la respuesta.
+- Un resultado automático.
+- La necesidad de revisión manual.
+
+### 9.3 Escenarios evaluados
+
+| ID | Escenario | Herramientas esperadas |
+|---|---|---|
+| FUNC-01 | Buscar Interstellar | search_movies |
+| FUNC-02 | Recomendar ciencia ficción | discover_movies |
+| FUNC-03 | Buscar El Hobbit | search_books |
+| FUNC-04 | Comparar Harry Potter con su libro | search_movies, search_books |
+
+### 9.4 Resultados
+
+En la ejecución del 18 de noviembre de 2026
+se obtuvieron los siguientes resultados:
+
+| Métrica | Resultado |
+|---|---:|
+| Evaluaciones ejecutadas | 4 |
+| Comprobaciones automáticas aprobadas | 4 |
+| Comprobaciones automáticas fallidas | 0 |
+| Errores | 0 |
+| Tasa de aprobación automática | 100% |
+
+Los cuatro escenarios obtuvieron `PASS_AUTO`.
+
+Esto significa que las respuestas del agente
+cumplieron las comprobaciones textuales definidas.
+
+### 9.5 Verificación de herramientas MCP
+
+Se revisaron los registros del backend durante
+la ejecución de las evaluaciones.
+
+Se observaron llamadas a:
+
+- search_movies
+- discover_movies (science_fiction)
+- search_books
+
+Los registros fueron compatibles con las
+herramientas esperadas para los cuatro escenarios.
+
+En particular, se observaron llamadas a búsqueda
+de películas y libros durante la secuencia de
+evaluación de comparación.
+
+Sin embargo, los registros actuales no incluyen
+identificadores de evaluación que permitan asociar
+automáticamente cada llamada con un escenario.
+
+Por tanto, la verificación del uso de herramientas
+se considera evidencia manual complementaria.
+
+### 9.6 Reproducción
+
+Primero iniciar el backend:
+
+```bash
+npm run server:dev
+```
+
+En otra terminal ejecutar:
+
+```bash
+npx tsx server/evals/functionalEvals.ts
+```
+
+El evaluador genera un reporte JSON en:
+
+`reports/functional/`
+
+Los reportes generados están excluidos del
+repositorio mediante `.gitignore`.
+
+### 9.7 Limitaciones
+
+- Las comprobaciones automáticas evalúan contenido
+  textual, no la ejecución de herramientas.
+- La revisión de herramientas MCP depende de
+  los registros del backend.
+- Las respuestas de Gemini pueden variar.
+- Los resultados no garantizan precisión factual
+  completa.
+- Las evaluaciones requieren acceso al backend
+  y pueden consumir cuota de Gemini.
+
+### 9.8 Conclusión
+
+Las cuatro evaluaciones funcionales superaron
+sus comprobaciones automáticas.
+
+Los registros del backend proporcionaron evidencia
+adicional compatible con el uso esperado de
+las herramientas MCP.
+
+Estas evaluaciones complementan las pruebas
+automatizadas y los escenarios de seguridad
+LLM01 y LLM07.
+```
